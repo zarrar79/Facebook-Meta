@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Post extends Model
+{
+    use HasFactory;
+
+    // Explicitly define the table name (optional, Laravel will guess "posts")
+    protected $table = 'posts';
+
+    // Set primary key name
+    protected $primaryKey = 'postId';
+
+    // Auto-incrementing is true by default, but we define it explicitly for clarity
+    public $incrementing = true;
+
+    // Primary key is integer
+    protected $keyType = 'int';
+
+    // Allow mass assignment for these fields
+    protected $fillable = [
+        'pageId',
+        'description',
+        'status',
+    ];
+
+    // Default attributes (just to enforce status = draft if not set)
+    protected $attributes = [
+        'status' => 'draft',
+    ];
+}
