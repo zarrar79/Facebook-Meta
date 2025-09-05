@@ -44,7 +44,7 @@ public function handleFacebookCallback(): RedirectResponse
 public function publishPost(Request $request): JsonResponse
 {
     $request->validate([
-        'message'   => 'required|string|max:5000',
+        'message'   => 'nullable|string|max:5000',
         'link'      => 'nullable|url',
         'images.*'  => 'nullable|image|max:10240', // 10MB max per image
         'page_id'   => 'required|string',
