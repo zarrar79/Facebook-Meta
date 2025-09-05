@@ -95,7 +95,6 @@ public function publishPost(Request $request): JsonResponse
         if ($request->link) {
             $params['link'] = $request->link;
         }
-
         // Attach uploaded photos to feed if any
         if (!empty($photoIds)) {
             $attached_media = [];
