@@ -5,20 +5,19 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [link, setLink] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [images, setImages] = useState([]); // array of files
+  const [imagePreviews, setImagePreviews] = useState([]); // array of preview URLs
   const [statusMsg, setStatusMsg] = useState(null);
+  const [pages, setPages] = useState([]);
 
-  // Get Facebook OAuth URL from backend and redirect user
+  // Connect Facebook
   const connectFacebook = async () => {
     try {
       setLoading(true);
       const res = await fetch("http://localhost:8000/api/auth/facebook");
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url; // redirect to FB login
-      } else {
-        setStatusMsg("Failed to get Facebook login URL.");
-      }
+      if (data.url) window.location.href = data.url;
+      else setStatusMsg("Failed to get Facebook login URL.");
     } catch (err) {
       console.error(err);
       setStatusMsg("Error requesting Facebook URL.");
@@ -27,7 +26,7 @@ function App() {
     }
   };
 
-  // Check if React was redirected back with token in URL
+  // Handle redirect back
   const handleRedirectBack = () => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
@@ -41,54 +40,84 @@ function App() {
         setFbUser(user);
       }
       setStatusMsg("Facebook connected ✅");
-
-      // remove token from URL
       window.history.replaceState({}, document.title, window.location.pathname);
+      fetchPages(token);
+    }
+  };
+
+  // Fetch pages
+  const fetchPages = async (token) => {
+    if (!token) return;
+    try {
+      setLoading(true);
+      const res = await fetch(`https://graph.facebook.com/me/accounts?access_token=${token}`);
+      const data = await res.json();
+      if (res.ok && data.data) setPages(data.data);
+      else setStatusMsg(data?.error?.message || "Failed to fetch pages");
+    } catch (err) {
+      console.error(err);
+      setStatusMsg("Error fetching pages");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    // restore from localStorage
     const storedToken = localStorage.getItem("fb_token");
     const storedUser = localStorage.getItem("fb_user");
     if (storedToken && storedUser) {
       setFbUser(JSON.parse(storedUser));
+      fetchPages(storedToken);
     }
-
     handleRedirectBack();
   }, []);
+
+  // Handle multiple files
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setImages(files);
+    setImagePreviews(files.map(file => URL.createObjectURL(file)));
+  };
 
   // Publish post
   const publishPost = async (e) => {
     e.preventDefault();
-    if (!message.trim()) {
-      setStatusMsg("Please type a message.");
-      return;
-    }
+    if (!message.trim()) return setStatusMsg("Please type a message.");
+    if (pages.length === 0) return setStatusMsg("No pages available to post.");
 
-    const payload = { message, link: link || null, image_url: imageUrl || null };
     setLoading(true);
     setStatusMsg(null);
 
     try {
-      const fbToken = localStorage.getItem("fb_token");
-      const res = await fetch("http://localhost:8000/api/posts", {
+      const firstPage = pages[0];
+
+      const formData = new FormData();
+      formData.append("message", message);
+      if (link) formData.append("link", link);
+      formData.append("page_id", firstPage.id);
+
+      images.forEach((img, idx) => {
+        formData.append(`images[${idx}]`, img); // append all images
+      });
+
+      const res = await fetch("http://localhost:8000/api/publish", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          ...(fbToken ? { "X-FB-Token": fbToken } : {}),
+          "X-FB-Token": firstPage.access_token,
         },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setStatusMsg("Post published ✅");
+        setStatusMsg(`Post published to "${firstPage.name}" ✅`);
         setMessage("");
         setLink("");
-        setImageUrl("");
+        setImages([]);
+        setImagePreviews([]);
       } else {
         setStatusMsg(data?.message || "Publish failed");
+        console.error(data.error);
       }
     } catch (err) {
       console.error(err);
@@ -121,6 +150,19 @@ function App() {
           </div>
         </header>
 
+        {pages.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-700 mb-2">Your Pages</h2>
+            <ul className="list-disc list-inside">
+              {pages.map((page) => (
+                <li key={page.id}>
+                  {page.name} (ID: {page.id})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <main>
           <form onSubmit={publishPost} className="space-y-4">
             <div>
@@ -144,14 +186,28 @@ function App() {
                   placeholder="https://example.com"
                 />
               </div>
+
               <div>
-                <label className="block text-sm font-medium text-gray-700">Image URL (optional)</label>
+                <label className="block text-sm font-medium text-gray-700">Upload Images (optional)</label>
                 <input
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="mt-1 block w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  placeholder="https://example.com/image.jpg"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileChange}
+                  className="mt-1 block w-full text-sm text-gray-700"
                 />
+                {imagePreviews.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {imagePreviews.map((src, idx) => (
+                      <img
+                        key={idx}
+                        src={src}
+                        alt={`Preview ${idx + 1}`}
+                        className="max-h-48 object-contain rounded-md border"
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -173,6 +229,7 @@ function App() {
                     localStorage.removeItem("fb_token");
                     localStorage.removeItem("fb_user");
                     setFbUser(null);
+                    setPages([]);
                     setStatusMsg("Disconnected");
                   }}
                   className="px-3 py-2 border rounded-lg text-sm"
