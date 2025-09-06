@@ -28,6 +28,68 @@ function Post(){
     }
   };
 
+  // Handle logout
+  // Handle logout
+const handleLogout = async () => {
+  try {
+    const token = localStorage.getItem("auth_token");
+
+    setLoading(true);
+    const res = await fetch("http://localhost:8000/api/logout", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    // Clear ALL tokens from localStorage
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("fb_token");
+    localStorage.removeItem("fb_user");
+
+    // Reset state
+    setFbUser(null);
+    setPages([]);
+    setSelectedPageId("");
+    setMessage("");
+    setLink("");
+    setImages([]);
+    setImagePreviews([]);
+
+    if (res.ok) {
+      setStatusMsg("Logged out successfully ✅");
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setStatusMsg(
+        "Logged out locally (API error: " + (data?.message || "Unknown error") + ")"
+      );
+    }
+  } catch (err) {
+    console.error("Logout error:", err);
+
+    // Clear anyway even if API call fails
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("fb_token");
+    localStorage.removeItem("fb_user");
+
+    setFbUser(null);
+    setPages([]);
+    setSelectedPageId("");
+    setMessage("");
+    setLink("");
+    setImages([]);
+    setImagePreviews([]);
+    setStatusMsg("Logged out locally (Network error)");
+  } finally {
+    setLoading(false);
+
+    // ✅ Navigate to login after cleanup
+    window.location.href = "/login";
+  }
+};
+
+
   // Handle redirect back
   const handleRedirectBack = () => {
     const params = new URLSearchParams(window.location.search);
@@ -112,6 +174,7 @@ function Post(){
 
   try {
     const selectedPage = pages.find((p) => p.id === selectedPageId);
+    const token = localStorage.getItem('auth_token')
 
     const formData = new FormData();
     if (message.trim()) formData.append("message", message);
@@ -126,6 +189,7 @@ function Post(){
       method: "POST",
       headers: {
         "X-FB-Token": selectedPage.access_token,
+        "Authorization" : `Bearer ${token}`
       },
       body: formData,
     });
@@ -152,11 +216,11 @@ function Post(){
 
 
   return (
-    <div className="min-h-screen  bg-[#2e4f76] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#2e4f76] flex items-center justify-center p-6">
       <div className="w-full max-w-2xl bg-[#e6f1f5] rounded-2xl shadow-md p-6">
         <header className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-semibold text-gray-800">Meta Facebook</h1>
-          <div>
+          <div className="flex items-center gap-3">
             {!fbUser ? (
               <button
                 onClick={connectFacebook}
@@ -166,10 +230,19 @@ function Post(){
                 {loading ? "Loading..." : "Connect with Facebook"}
               </button>
             ) : (
-              <div className="text-right">
-                <div className="text-sm text-gray-500">Connected:</div>
-                <div className="text-sm font-medium text-gray-800">{fbUser.name}</div>
-              </div>
+              <>
+                <div className="text-right">
+                  <div className="text-sm text-gray-500">Connected:</div>
+                  <div className="text-sm font-medium text-gray-800">{fbUser.name}</div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+                  disabled={loading}
+                >
+                  {loading ? "Logging out..." : "Logout"}
+                </button>
+              </>
             )}
           </div>
         </header>
@@ -184,7 +257,7 @@ function Post(){
             >
               <option className="border-none" value="">Select Page</option>
               {pages.map((page) => (
-                <option  key={page.id} value={page.id}>
+                <option key={page.id} value={page.id}>
                   {page.name}
                 </option>
               ))}
