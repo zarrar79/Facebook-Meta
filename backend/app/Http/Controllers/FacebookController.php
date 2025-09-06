@@ -2,31 +2,43 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Post;
+use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\RedirectResponse;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 class FacebookController extends Controller
 {
     // Step 1: Get Facebook login URL
     public function redirectToFacebook(): JsonResponse
-    {
-        $url = Socialite::driver('facebook')->scopes([
-            'pages_manage_posts',
-            'pages_read_engagement',
-            'public_profile'
-        ])->stateless()->redirect()->getTargetUrl();
+{
+    $user = auth('sanctum')->user();
+    $encryptedState = Crypt::encryptString($user->id);
 
-        return response()->json([
-            'url' => $url,
-        ]);
-    }
+    $url = Socialite::driver('facebook')->scopes([
+        'pages_manage_posts',
+        'pages_read_engagement',
+        'public_profile'
+    ])->with(['state' => $encryptedState])->stateless()->redirect()->getTargetUrl();
+
+    return response()->json(['url' => $url]);
+}
 
     // Step 2: Handle callback from Facebook
 public function handleFacebookCallback(): RedirectResponse
 {
     try {
         $facebookUser = Socialite::driver('facebook')->stateless()->user();
+        $encryptedState = request('state');
+        $userId = Crypt::decryptString($encryptedState);
+
+        // Store token for the authenticated user
+        User::find($userId)->update([
+            'facebook_access_token' => $facebookUser->token
+        ]);
+
         $name = urlencode($facebookUser->getName());
         return redirect("http://localhost:5173/post?token={$facebookUser->token}&name={$name}");
     } catch (\Exception $e) {
