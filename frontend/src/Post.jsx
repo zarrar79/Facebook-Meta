@@ -17,71 +17,90 @@ function Post() {
 
   const [pages, setPages] = useState([]);
   const [selectedPageId, setSelectedPageId] = useState("");
- const navigate = useNavigate();
+  const navigate = useNavigate();
 
+
+  useEffect(()=>{
+    const user = localStorage.getItem('fb_user');
+     if(user)
+     setFbUser(user)
+
+  })
   // -----------------------------
   // 🔹 Facebook Connect
   // -----------------------------
   const connectFacebook = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:8000/api/auth/facebook");
-      const data = await res.json();
+  try {
+    setLoading(true);
 
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        setStatusMsg("Failed to get Facebook login URL.");
+    const token = localStorage.getItem("auth_token"); // ✅ your Sanctum token
+    console.log(token);
+    
+
+    const res = await fetch("http://localhost:8000/api/auth/facebook", {
+      headers: {
+        "Authorization": `Bearer ${token}`,
       }
-    } catch (err) {
-      console.error(err);
-      setStatusMsg("Error requesting Facebook URL.");
-    } finally {
-      setLoading(false);
+    });
+
+    const data = await res.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    } else {
+      setStatusMsg("Failed to get Facebook login URL.");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setStatusMsg("Error requesting Facebook URL.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // -----------------------------
   // 🔹 Handle Redirect Back (after Facebook login)
   // -----------------------------
   const handleRedirectBack = () => {
     const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
     const name = params.get("name");
 
-    if (token) {
-      localStorage.setItem("fb_token", token);
 
       if (name) {
         const user = { name };
-        localStorage.setItem("fb_user", JSON.stringify(user));
+        
+        localStorage.setItem("fb_user", user.name);
         setFbUser(user);
-      }
+      
 
       setStatusMsg("Facebook connected ✅");
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      fetchPages(token);
+      fetchPages();
     }
   };
 
   // -----------------------------
   // 🔹 Fetch Pages
   // -----------------------------
-  const fetchPages = async (token) => {
-    if (!token) return;
-
+  const fetchPages = async () => {
+    const token = localStorage.getItem('auth_token');
+    
     try {
       setLoading(true);
-      const res = await fetch(
-        `https://graph.facebook.com/me/accounts?access_token=${token}`
-      );
+      const res = await fetch("http://localhost:8000/api/facebook/pages",{
+        method: "GET",
+        headers : {
+          "Authorization" : `Bearer ${token}`
+        }
+      });
       const data = await res.json();
 
-      if (res.ok && data.data) {
-        setPages(data.data);
+      if (res.ok) {
+        setPages(data.pages || []);
       } else {
-        setStatusMsg(data?.error?.message || "Failed to fetch pages");
+        setStatusMsg(data?.message || "Failed to fetch pages");
       }
     } catch (err) {
       console.error(err);
@@ -125,7 +144,7 @@ function Post() {
 
       if (res.ok) {
         setStatusMsg("Logged out successfully ✅");
-        navigate('/login')
+        navigate("/login");
       } else {
         setStatusMsg(
           "Logged out locally (API error: " +
@@ -243,7 +262,7 @@ function Post() {
 
     if (storedToken && storedUser) {
       setFbUser(JSON.parse(storedUser));
-      fetchPages(storedToken);
+      fetchPages();
     }
 
     handleRedirectBack();
@@ -256,12 +275,12 @@ function Post() {
     <div className="min-h-screen bg-[#2e4f76] flex items-center justify-center p-6">
       <div className="w-full max-w-2xl bg-[#e6f1f5] rounded-2xl shadow-md p-6">
         <button
-        onClick={handleLogout}
-        className="absolute top-4 right-6 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-        disabled={loading}
-      >
-        {loading ? "Logging out..." : "Logout"}
-      </button>
+          onClick={handleLogout}
+          className="absolute top-4 right-6 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+          disabled={loading}
+        >
+          {loading ? "Logging out..." : "Logout"}
+        </button>
 
         {/* Header */}
         <header className="flex items-center justify-between mb-6">
@@ -283,7 +302,7 @@ function Post() {
                 <div className="text-right">
                   <div className="text-sm text-gray-500">Connected:</div>
                   <div className="text-sm font-medium text-gray-800">
-                    {fbUser.name}
+                    {fbUser}
                   </div>
                 </div>
                 <button

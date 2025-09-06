@@ -9,7 +9,8 @@ Route::get('auth/facebook/callback', [FacebookController::class, 'handleFacebook
 
 Route::middleware('auth:sanctum')->group(function () {
 Route::post('/publish', [FacebookController::class, 'publishPost']);
-Route::post('/facebook/store-token', [FacebookController::class, 'storeFacebookToken']);
+Route::get('/facebook/pages', [FacebookController::class, 'getPages']);
+
 Route::post('/logout', [LoginController::class, 'logout']);
 
 });

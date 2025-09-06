@@ -141,37 +141,20 @@ public function publishPost(Request $request): JsonResponse
     }
 }
 
-// In your FacebookController
-public function storeFacebookToken(Request $request)
+public function getPages(Request $request)
 {
-    $request->validate([
-        'facebook_token' => 'required|string',
-        'facebook_name' => 'required|string'
+    $user = $request->user();
+
+    if (!$user || !$user->facebook_access_token) {
+        return response()->json(['message' => 'Facebook token not found'], 400);
+    }
+
+    $response = Http::get('https://graph.facebook.com/me/accounts', [
+        'access_token' => $user->facebook_access_token,
     ]);
 
-    try {
-        $user = $request->user(); // Get authenticated user via Sanctum
-        
-        $user->update([
-            'facebook_access_token' => $request->facebook_token,
-            'facebook_name' => $request->facebook_name,
-            'facebook_connected_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Facebook token stored successfully'
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to store Facebook token',
-            'error' => $e->getMessage()
-        ], 500);
-    }
+    return response()->json(['pages' => $response->json()['data'] ?? []]);
 }
-
 
 
 }
