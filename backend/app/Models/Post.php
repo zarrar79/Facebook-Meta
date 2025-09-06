@@ -22,6 +22,11 @@ class Post extends Model
     protected $fillable = [
         'description',
         'status',
+        'imageUrls'
+    ];
+
+    protected $casts = [
+        'imageUrls' => 'array', // ✅ so Laravel handles JSON <-> array
     ];
 
     // Default attributes (just to enforce status = draft if not set)

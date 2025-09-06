@@ -9,6 +9,7 @@ use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 class FacebookController extends Controller
 {
     // Step 1: Get Facebook login URL
@@ -73,15 +74,27 @@ public function publishPost(Request $request): JsonResponse
     }
 
     try {
-        // 1️⃣ Save the post in DB first (default = draft)
+        $storedImageUrls = [];
+
+        // 1️⃣ Save images locally
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('posts', 'public');
+                $url  = Storage::url($path); // e.g. /storage/posts/abc.jpg
+                $storedImageUrls[] = $url;
+            }
+        }
+
+        // 2️⃣ Save initial post in DB with images + draft
         $post = Post::create([
             'description' => $request->message,
             'status'      => 'draft',
+            'imageUrls'      => $storedImageUrls, // store JSON array
         ]);
 
         $photoIds = [];
 
-        // 2️⃣ Upload images to Facebook (unpublished)
+        // 3️⃣ Upload images to Facebook (unpublished)
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
                 $response = Http::asMultipart()->post("https://graph.facebook.com/{$pageId}/photos", [
@@ -104,7 +117,7 @@ public function publishPost(Request $request): JsonResponse
             }
         }
 
-        // 3️⃣ Prepare the feed post params
+        // 4️⃣ Prepare feed post params
         $params = [
             'message'       => $request->message,
             'access_token'  => $pageToken,
@@ -122,19 +135,18 @@ public function publishPost(Request $request): JsonResponse
             $params['attached_media'] = json_encode($attached_media);
         }
 
-        // 4️⃣ Publish to Facebook
+        // 5️⃣ Publish to Facebook
         $response = Http::asForm()->post("https://graph.facebook.com/{$pageId}/feed", $params);
         $data = $response->json();
 
         if ($response->successful() && isset($data['id'])) {
-            // 5️⃣ Update the DB post status to published
-            $post->update([
-                'status'     => 'published',
-            ]);
+            // ✅ Update post status to published
+            $post->update(['status' => 'published']);
 
             return response()->json([
                 'success'   => true,
                 'message'   => 'Post published successfully',
+                'post'      => $post,
             ]);
         }
 

@@ -22,8 +22,11 @@ function Post() {
 
   useEffect(()=>{
     const user = localStorage.getItem('fb_user');
-     if(user)
+    const savedPages = JSON.parse(localStorage.getItem("fb_pages")) || [];
+     if(user){
      setFbUser(user)
+     setPages(savedPages);
+     }
 
   })
   // -----------------------------
@@ -85,30 +88,38 @@ function Post() {
   // 🔹 Fetch Pages
   // -----------------------------
   const fetchPages = async () => {
-    const token = localStorage.getItem('auth_token');
-    
-    try {
-      setLoading(true);
-      const res = await fetch("http://localhost:8000/api/facebook/pages",{
-        method: "GET",
-        headers : {
-          "Authorization" : `Bearer ${token}`
-        }
-      });
-      const data = await res.json();
+  const token = localStorage.getItem('auth_token');
 
-      if (res.ok) {
-        setPages(data.pages || []);
-      } else {
-        setStatusMsg(data?.message || "Failed to fetch pages");
-      }
-    } catch (err) {
-      console.error(err);
-      setStatusMsg("Error fetching pages");
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    const res = await fetch("http://localhost:8000/api/facebook/pages", {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      const pages = data.pages || [];
+
+      // ✅ Save in React state
+      setPages(pages);
+
+      // ✅ Save in localStorage
+      localStorage.setItem("fb_pages", JSON.stringify(pages));
+    } else {
+      setStatusMsg(data?.message || "Failed to fetch pages");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setStatusMsg("Error fetching pages");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // -----------------------------
   // 🔹 Logout
@@ -132,6 +143,7 @@ function Post() {
       localStorage.removeItem("auth_token");
       localStorage.removeItem("fb_token");
       localStorage.removeItem("fb_user");
+      localStorage.removeItem("fb_pages");
 
       // Reset state
       setFbUser(null);
@@ -241,6 +253,9 @@ function Post() {
         setImages([]);
         setImagePreviews([]);
         setSelectedPageId("");
+        setTimeout(() => {
+  window.location.reload();
+}, 3000);
       } else {
         setStatusMsg(data?.message || "Publish failed");
         console.error(data.error);
@@ -277,9 +292,8 @@ function Post() {
         <button
           onClick={handleLogout}
           className="absolute top-4 right-6 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-          disabled={loading}
         >
-          {loading ? "Logging out..." : "Logout"}
+          Logout
         </button>
 
         {/* Header */}
@@ -305,13 +319,6 @@ function Post() {
                     {fbUser}
                   </div>
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
-                  disabled={loading}
-                >
-                  {loading ? "Logging out..." : "Logout"}
-                </button>
               </>
             )}
           </div>
@@ -396,9 +403,9 @@ function Post() {
                 <button
                   type="submit"
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                  disabled={loading || !fbUser}
+                  disabled={!fbUser}
                 >
-                  {loading ? "Publishing..." : "Publish to Facebook"}
+                  Publish to Facebook
                 </button>
 
                 <button
