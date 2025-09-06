@@ -12,9 +12,6 @@ class Post extends Model
     // Explicitly define the table name (optional, Laravel will guess "posts")
     protected $table = 'posts';
 
-    // Set primary key name
-    protected $primaryKey = 'postId';
-
     // Auto-incrementing is true by default, but we define it explicitly for clarity
     public $incrementing = true;
 
@@ -23,7 +20,6 @@ class Post extends Model
 
     // Allow mass assignment for these fields
     protected $fillable = [
-        'pageId',
         'description',
         'status',
     ];

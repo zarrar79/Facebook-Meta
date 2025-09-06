@@ -23,13 +23,12 @@ class FacebookController extends Controller
     }
 
     // Step 2: Handle callback from Facebook
-
 public function handleFacebookCallback(): RedirectResponse
 {
     try {
         $facebookUser = Socialite::driver('facebook')->stateless()->user();
         $name = urlencode($facebookUser->getName());
-        return redirect("http://localhost:5173?token={$facebookUser->token}&name={$name}");
+        return redirect("http://localhost:5173/post?token={$facebookUser->token}&name={$name}");
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
@@ -66,7 +65,6 @@ public function publishPost(Request $request): JsonResponse
         $post = Post::create([
             'description' => $request->message,
             'status'      => 'draft',
-            'pageId'      => $pageId,   // <-- make sure you added this column in migration
         ]);
 
         $photoIds = [];
@@ -139,6 +137,37 @@ public function publishPost(Request $request): JsonResponse
             'success' => false,
             'message' => 'Error publishing post',
             'error'   => $e->getMessage(),
+        ], 500);
+    }
+}
+
+// In your FacebookController
+public function storeFacebookToken(Request $request)
+{
+    $request->validate([
+        'facebook_token' => 'required|string',
+        'facebook_name' => 'required|string'
+    ]);
+
+    try {
+        $user = $request->user(); // Get authenticated user via Sanctum
+        
+        $user->update([
+            'facebook_access_token' => $request->facebook_token,
+            'facebook_name' => $request->facebook_name,
+            'facebook_connected_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Facebook token stored successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to store Facebook token',
+            'error' => $e->getMessage()
         ], 500);
     }
 }

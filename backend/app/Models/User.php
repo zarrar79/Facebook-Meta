@@ -6,6 +6,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
@@ -17,10 +18,12 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+    use HasApiTokens, HasFactory, Notifiable;
     protected $fillable = [
         'name',
         'email',
         'password',
+        'facebook_access_token'
     ];
 
     /**

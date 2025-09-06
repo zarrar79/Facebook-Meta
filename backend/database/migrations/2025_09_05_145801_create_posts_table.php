@@ -12,10 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('posts', function (Blueprint $table) {
-            $table->id('postId'); // Primary key named postId
+            $table->id('id'); // Primary key named postId
             $table->text('description')->nullable(); // Description field
             $table->enum('status', ['draft', 'published'])->default('draft'); // Default draft
-            $table->string('pageId');
+            $table->string('link')->nullable(); // Optional link
+            $table->json('imageUrls')->nullable(); // Store multiple image URLs
+            $table->string('facebook_post_id')->nullable(); // Store FB post id after publishing
             $table->timestamps(); // created_at & updated_at
         });
     }
