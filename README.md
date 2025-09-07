@@ -1,6 +1,6 @@
 # Meta Graph API
 
-This project integrates **React + Vite** (frontend) with a **Laravel 12 API** (backend).  
+This project integrates **React + Vite** (frontend) with a **Laravel 11/12 API** (backend).  
 It provides Facebook authentication using **Socialite** and secure API communication with **Sanctum**.  
 
 ---
