@@ -20,7 +20,20 @@ cd backend
 composer install
 cp .env.example .env
 php artisan migrate
+php artisan db:seed
 php artisan serve
+```
+
+#### Install Sanctum & Socialite
+
+```bash
+# Sanctum
+composer require laravel/sanctum
+php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+php artisan migrate
+
+# Socialite
+composer require laravel/socialite
 ```
 
 Update your `.env` with:
