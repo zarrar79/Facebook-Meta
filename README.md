@@ -7,7 +7,7 @@ It provides Facebook authentication using **Socialite** and secure API communica
 
 ## Backend (Laravel)
 
-The backend is built with **Laravel 11**, handling:
+The backend is built with **Laravel 12**, handling:
 
 - Facebook OAuth login via Socialite  
 - API authentication with Sanctum  
@@ -59,6 +59,7 @@ The frontend is built with **React + Vite**, providing:
 ```bash
 cd frontend
 npm install
+npm install react-router-dom
 npm run dev
 ```
 
