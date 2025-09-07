@@ -19,48 +19,44 @@ function Post() {
   const [selectedPageId, setSelectedPageId] = useState("");
   const navigate = useNavigate();
 
-
-  useEffect(()=>{
-    const user = localStorage.getItem('fb_user');
+  useEffect(() => {
+    const user = localStorage.getItem("fb_user");
     const savedPages = JSON.parse(localStorage.getItem("fb_pages")) || [];
-     if(user){
-     setFbUser(user)
-     setPages(savedPages);
-     }
-
-  })
+    if (user) {
+      setFbUser(user);
+      setPages(savedPages);
+    }
+  });
   // -----------------------------
   // 🔹 Facebook Connect
   // -----------------------------
   const connectFacebook = async () => {
-  try {
-    setLoading(true);
+    try {
+      setLoading(true);
 
-    const token = localStorage.getItem("auth_token"); // ✅ your Sanctum token
-    console.log(token);
-    
+      const token = localStorage.getItem("auth_token"); // ✅ your Sanctum token
+      console.log(token);
 
-    const res = await fetch("http://localhost:8000/api/auth/facebook", {
-      headers: {
-        "Authorization": `Bearer ${token}`,
+      const res = await fetch("http://localhost:8000/api/auth/facebook", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        setStatusMsg("Failed to get Facebook login URL.");
       }
-    });
-
-    const data = await res.json();
-
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      setStatusMsg("Failed to get Facebook login URL.");
+    } catch (err) {
+      console.error(err);
+      setStatusMsg("Error requesting Facebook URL.");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    setStatusMsg("Error requesting Facebook URL.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   // -----------------------------
   // 🔹 Handle Redirect Back (after Facebook login)
@@ -69,13 +65,11 @@ function Post() {
     const params = new URLSearchParams(window.location.search);
     const name = params.get("name");
 
+    if (name) {
+      const user = { name };
 
-      if (name) {
-        const user = { name };
-        
-        localStorage.setItem("fb_user", user.name);
-        setFbUser(user);
-      
+      localStorage.setItem("fb_user", user.name);
+      setFbUser(user);
 
       setStatusMsg("Facebook connected ✅");
       window.history.replaceState({}, document.title, window.location.pathname);
@@ -88,38 +82,37 @@ function Post() {
   // 🔹 Fetch Pages
   // -----------------------------
   const fetchPages = async () => {
-  const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem("auth_token");
 
-  try {
-    setLoading(true);
-    const res = await fetch("http://localhost:8000/api/facebook/pages", {
-      method: "GET",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-      },
-    });
+    try {
+      setLoading(true);
+      const res = await fetch("http://localhost:8000/api/facebook/pages", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (res.ok) {
-      const pages = data.pages || [];
+      if (res.ok) {
+        const pages = data.pages || [];
 
-      // ✅ Save in React state
-      setPages(pages);
+        // ✅ Save in React state
+        setPages(pages);
 
-      // ✅ Save in localStorage
-      localStorage.setItem("fb_pages", JSON.stringify(pages));
-    } else {
-      setStatusMsg(data?.message || "Failed to fetch pages");
+        // ✅ Save in localStorage
+        localStorage.setItem("fb_pages", JSON.stringify(pages));
+      } else {
+        setStatusMsg(data?.message || "Failed to fetch pages");
+      }
+    } catch (err) {
+      console.error(err);
+      setStatusMsg("Error fetching pages");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    setStatusMsg("Error fetching pages");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   // -----------------------------
   // 🔹 Logout
@@ -254,8 +247,8 @@ function Post() {
         setImagePreviews([]);
         setSelectedPageId("");
         setTimeout(() => {
-  window.location.reload();
-}, 3000);
+          window.location.reload();
+        }, 3000);
       } else {
         setStatusMsg(data?.message || "Publish failed");
         console.error(data.error);
