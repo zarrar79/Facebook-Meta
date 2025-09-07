@@ -33,4 +33,7 @@ class Post extends Model
     protected $attributes = [
         'status' => 'draft',
     ];
+
+    public const STATUS_DRAFT = 'draft';
+    public const STATUS_PUBLISHED = 'published';
 }

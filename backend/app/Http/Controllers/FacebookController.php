@@ -55,115 +55,38 @@ public function handleFacebookCallback(): RedirectResponse
      * Publish a post to Facebook using the user's access token.
      */
 public function publishPost(Request $request): JsonResponse
-{
-    $request->validate([
-        'message'   => 'nullable|string|max:5000',
-        'link'      => 'nullable|url',
-        'images.*'  => 'nullable|image|max:10240', // 10MB max per image
-        'page_id'   => 'required|string',
-    ]);
-
-    $pageId = $request->page_id;
-    $pageToken = $request->header('X-FB-Token');
-
-    if (!$pageToken) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Page token missing',
-        ], 400);
-    }
-
-    try {
-        $storedImageUrls = [];
-
-        // 1️⃣ Save images locally
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $path = $image->store('posts', 'public');
-                $url  = Storage::url($path); // e.g. /storage/posts/abc.jpg
-                $storedImageUrls[] = $url;
-            }
-        }
-
-        // 2️⃣ Save initial post in DB with images + draft
-        $post = Post::create([
-            'description' => $request->message,
-            'status'      => 'draft',
-            'imageUrls'      => $storedImageUrls, // store JSON array
+    {
+        $request->validate([
+            'message'   => 'nullable|string|max:5000',
+            'link'      => 'nullable|url',
+            'images.*'  => 'nullable|image|max:10240',
+            'page_id'   => 'required|string',
         ]);
 
-        $photoIds = [];
+        $pageId    = $request->page_id;
+        $pageToken = $request->header('X-FB-Token');
 
-        // 3️⃣ Upload images to Facebook (unpublished)
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $image) {
-                $response = Http::asMultipart()->post("https://graph.facebook.com/{$pageId}/photos", [
-                    'source'       => fopen($image->getRealPath(), 'r'),
-                    'published'    => false,
-                    'access_token' => $pageToken,
-                ]);
+        if (!$pageToken) {
+            return response()->json(['success' => false, 'message' => 'Page token missing'], 400);
+        }
 
-                $data = $response->json();
+        try {
+            $storedImageUrls = $this->storeImagesLocally($request);
+            $post            = $this->createDraftPost($request->message, $storedImageUrls);
 
-                if ($response->successful() && isset($data['id'])) {
-                    $photoIds[] = $data['id'];
-                } else {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to upload image',
-                        'error'   => $data,
-                    ], 400);
-                }
+            $photoIds = $this->uploadImagesToFacebook($request, $pageId, $pageToken);
+            $response = $this->publishToFacebook($pageId, $pageToken, $request->message, $request->link, $photoIds);
+
+            if ($response->successful() && isset($response['id'])) {
+                $post->update(['status' => Post::STATUS_PUBLISHED]); // use constant
+                return response()->json(['success' => true, 'message' => 'Post published', 'post' => $post]);
             }
+
+            return response()->json(['success' => false, 'message' => 'Failed to publish', 'error' => $response->json()], 400);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'Error publishing post', 'error' => $e->getMessage()], 500);
         }
-
-        // 4️⃣ Prepare feed post params
-        $params = [
-            'message'       => $request->message,
-            'access_token'  => $pageToken,
-        ];
-
-        if ($request->link) {
-            $params['link'] = $request->link;
-        }
-
-        if (!empty($photoIds)) {
-            $attached_media = [];
-            foreach ($photoIds as $id) {
-                $attached_media[] = ['media_fbid' => $id];
-            }
-            $params['attached_media'] = json_encode($attached_media);
-        }
-
-        // 5️⃣ Publish to Facebook
-        $response = Http::asForm()->post("https://graph.facebook.com/{$pageId}/feed", $params);
-        $data = $response->json();
-
-        if ($response->successful() && isset($data['id'])) {
-            // ✅ Update post status to published
-            $post->update(['status' => 'published']);
-
-            return response()->json([
-                'success'   => true,
-                'message'   => 'Post published successfully',
-                'post'      => $post,
-            ]);
-        }
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to publish post',
-            'error'   => $data,
-        ], 400);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error publishing post',
-            'error'   => $e->getMessage(),
-        ], 500);
     }
-}
 
 public function getPages(Request $request)
 {
@@ -180,5 +103,56 @@ public function getPages(Request $request)
     return response()->json(['pages' => $response->json()['data'] ?? []]);
 }
 
+private function storeImagesLocally(Request $request): array
+    {
+        $urls = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $path = $image->store('posts', 'public');
+                $urls[] = Storage::url($path);
+            }
+        }
+        return $urls;
+    }
+
+    private function createDraftPost(?string $message, array $images): Post
+    {
+        return Post::create([
+            'description' => $message,
+            'status'      => Post::STATUS_DRAFT,
+            'imageUrls'   => $images,
+        ]);
+    }
+
+    private function uploadImagesToFacebook(Request $request, string $pageId, string $pageToken): array
+    {
+        $ids = [];
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $image) {
+                $response = Http::asMultipart()->post("https://graph.facebook.com/{$pageId}/photos", [
+                    'source'       => fopen($image->getRealPath(), 'r'),
+                    'published'    => false,
+                    'access_token' => $pageToken,
+                ]);
+                if ($response->successful() && isset($response['id'])) {
+                    $ids[] = $response['id'];
+                }
+            }
+        }
+        return $ids;
+    }
+
+    private function publishToFacebook(string $pageId, string $pageToken, ?string $message, ?string $link, array $photoIds)
+    {
+        $params = [
+            'message'      => $message,
+            'access_token' => $pageToken,
+        ];
+        if ($link) $params['link'] = $link;
+        if (!empty($photoIds)) {
+            $params['attached_media'] = json_encode(array_map(fn($id) => ['media_fbid' => $id], $photoIds));
+        }
+        return Http::asForm()->post("https://graph.facebook.com/{$pageId}/feed", $params);
+    }
 
 }
