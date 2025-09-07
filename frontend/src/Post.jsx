@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import PostForm from "./components/PostForm";
 
 function Post() {
   // -----------------------------
@@ -26,7 +27,7 @@ function Post() {
       setFbUser(user);
       setPages(savedPages);
     }
-  });
+  }, []);
   // -----------------------------
   // 🔹 Facebook Connect
   // -----------------------------
@@ -174,28 +175,6 @@ function Post() {
   };
 
   // -----------------------------
-  // 🔹 Handle File Uploads
-  // -----------------------------
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    const maxSize = 1 * 1024 * 1024; // 1MB
-
-    const hasLargeFile = files.some((file) => file.size > maxSize);
-
-    if (hasLargeFile) {
-      setStatusMsg("❌ Images should each be less than 1 MB.");
-      setMessage(" ");
-      setImages([]);
-      setImagePreviews([]);
-      return;
-    }
-
-    setStatusMsg(null);
-    setImages(files);
-    setImagePreviews(files.map((file) => URL.createObjectURL(file)));
-  };
-
-  // -----------------------------
   // 🔹 Publish Post
   // -----------------------------
   const publishPost = async (e) => {
@@ -227,7 +206,7 @@ function Post() {
       images.forEach((img, idx) => {
         formData.append(`images[${idx}]`, img);
       });
-
+      
       const res = await fetch("http://localhost:8000/api/publish", {
         method: "POST",
         headers: {
@@ -326,7 +305,7 @@ function Post() {
             <select
               value={selectedPageId}
               onChange={(e) => setSelectedPageId(e.target.value)}
-              className="border-none rounded-md px-3 py-2 bg-[#a7abb0]"
+              className="border-none rounded-md px-3 py-2"
             >
               <option value="">Select Page</option>
               {pages.map((page) => (
@@ -340,83 +319,24 @@ function Post() {
 
         {/* Post Form */}
         <main>
-          <form onSubmit={publishPost} className="space-y-4">
-            {/* Message */}
-            <div>
-              <label className="block text-md font-medium text-gray-700">
-                Description
-              </label>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="mt-1 block text-sm w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-200"
-                rows={4}
-                placeholder="What's in your mind..."
-              />
-            </div>
-
-            {/* Images */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Upload Images (max 1MB each)
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleFileChange}
-                  className="mt-1 block w-full text-sm text-gray-700"
-                />
-
-                {imagePreviews.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {imagePreviews.map((src, idx) => (
-                      <img
-                        key={idx}
-                        src={src}
-                        alt={`Preview ${idx + 1}`}
-                        className="max-h-48 object-contain rounded-md border"
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                {statusMsg && (
-                  <span className="text-sm text-red-600">{statusMsg}</span>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                  disabled={!fbUser}
-                >
-                  Publish to Facebook
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    localStorage.removeItem("fb_token");
-                    localStorage.removeItem("fb_user");
-                    setFbUser(null);
-                    setPages([]);
-                    setStatusMsg("Disconnected");
-                  }}
-                  className="px-3 py-2 border rounded-lg text-sm"
-                >
-                  Disconnect
-                </button>
-              </div>
-            </div>
-          </form>
+          <PostForm
+            message={message}
+            setMessage={setMessage}
+            images={images}
+            setImages={setImages}
+            imagePreviews={imagePreviews}
+            setImagePreviews={setImagePreviews}
+            statusMsg={statusMsg}
+            fbUser={fbUser}
+            onPublish={publishPost}
+            onDisconnect={() => {
+              localStorage.removeItem("fb_token");
+              localStorage.removeItem("fb_user");
+              setFbUser(null);
+              setPages([]);
+              setStatusMsg("Disconnected");
+            }}
+          />
         </main>
       </div>
     </div>

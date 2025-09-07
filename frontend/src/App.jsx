@@ -2,8 +2,10 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './Login';
 import Post from './Post';
+import { useEffect } from 'react';
 
 function App() {
+
   const isAuthenticated = () => {
     return localStorage.getItem('auth_token') !== null;
   };
