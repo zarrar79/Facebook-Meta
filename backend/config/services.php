@@ -41,5 +41,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'frontend' => [
+    'url' => env('FRONTEND_URL', 'http://localhost:5173'),
+],
+
 
 ];
